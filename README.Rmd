@@ -1,0 +1,38 @@
+---
+title: "HEADS Classes"
+author:
+ - "Francisco Bischoff"
+date: "`r format(Sys.Date(), '- %d %b %Y')`"
+editor_options:
+  markdown:
+    mode: gfm
+output: 
+  md_document:
+    variant: gfm
+  html_preview: true
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  fig.path = ".assets/figures/README-",
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  collapse = TRUE
+)
+```
+
+<img src=".assets/figures/logo.png" align="right" style="float:right;"/>
+
+<!-- start badges -->
+
+<!-- end badges -->
+
+This repository has some presentations used on the [PhD Program in Health data Science.](heads.med.up.pt)
+
+## HEADS
+
+There is great potential for utilizing the data routinely produced by modern healthcare systems in electronic health records, administrative databases, clinical registries, and other clinical systems.
+Health data scientists are therefore needed to make sense of all the data, derive new knowledge about health, disease, and treatments, and especially provide answers to research questions which are otherwise hard or even impossible to address by traditional study designs.
