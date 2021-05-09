@@ -12,7 +12,7 @@ output:
   html_preview: true
 ---
 
-<!-- README.md is generated from README.Rmd. Please edit that file -->
+<!-- README.md is generated from README.Rmd, please edit that file -->
 
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(

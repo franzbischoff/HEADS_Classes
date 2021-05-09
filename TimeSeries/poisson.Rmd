@@ -1,0 +1,461 @@
+---
+title: "Poisson regession"
+date: "`r Sys.Date()`"
+author: Francisco Bischoff
+output:
+  rmdformats::downcute:
+    embed_fonts: true
+    self_contained: true
+    use_bookdown: true
+    thumbnails: true
+    lightbox: true
+    gallery: false
+bibliography: references.yaml
+csl: springer-lncs.csl
+---
+
+```{css, echo=FALSE}
+span.math.inline {
+  font-size: 85%;
+}
+span.math.display {
+  font-size: 110%;
+}
+.csl-entry {
+  display: flex;
+}
+.csl-left-margin {
+  padding-right: 20px;
+  width: 20px;
+}
+.page-content h1, .page-content h2, .page-content h3, .page-content h4, .page-content h5, .page-content h6 {
+  font-weight: bold;
+}
+```
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(tidy = "styler")
+library(dplyr)
+library(ggplot2)
+library(sandwich)
+library(msm)
+```
+
+# Poisson distribution
+
+When a dataset has a time-series that is originated from count data ($y \in \mathbb{N}_0$) instead of a general measurements ($y \in \mathbb{R}$), this time-series may follow the Poisson distribution (read the assumptions below), and may be analyzed with more specific mathematical tools.
+
+## Assumptions and validity
+
+The Poisson distribution is an appropriate model if the following assumptions are true:
+
+-   $y$ is the number of times an event occurs in a given interval and $y$ can take values $0, 1, 2, ...$ (non-negative integers);
+-   The occurrence of one event **does not affect** the probability that a second event will occur. That is, events occur **independently**.
+-   The average rate at which events occur is independent of any occurrences. For simplicity, this is usually assumed to be constant, but may in practice vary with time.
+-   Two events **cannot occur at exactly the same instant**; instead, at each very small sub-interval exactly one event either occurs or does not occur[^1].
+
+So, mathematically the probability of $y$ events where the average of events in a given interval is $\mu$:
+
+$$
+P(Y = y; \mu) = \frac{\mu^y \times e^{-\mu}}{y!}, \qquad \text{for} \; y \in \mathbb{N}_{0} \tag{equation 1}
+$$
+
+in R we can use:
+
+```{r poisson formula, eval=FALSE}
+pois_prob <- function(y, mu) {
+  ((mu^y) * exp(-mu)) / factorial(y)
+}
+```
+
+or just
+
+```{r dpois, eval=FALSE}
+dpois(y, mu)
+```
+
+[^1]: Important property: this is the reason why the Poisson PMF contains the *euler's* number.
+    Check that on [Khan Academy](https://en.khanacademy.org/math/statistics-probability/random-variables-stats-library/poisson-distribution/v/poisson-process-1).
+
+## Parameter estimation
+
+The Poisson distribution is also known by its unique parameter $\lambda$ that is equal to the **mean** and to the **variance** of the distribution.
+If the variance is larger than the mean, we say the distribution is "overdispersed", in which case we have to first search for one explanation for that, as confounders (if all seems to be right, as last resource we can use the *quasi-*Poisson family or a negative binomial distribution -- equivalent to gamma-Poisson -- instead).
+
+Given a sample of $n$ measured values $y_{i} \in \{0,1,...\} \; \mathrm{for} \; i = 1, ..., n$, we wish to estimate the value of the parameter $\lambda$ of the Poisson population from which the sample was drawn.
+
+The maximum likelihood estimate is:
+
+$$
+\widehat{\lambda}_{\mathrm{MLE}}=\frac{1}{n}\sum_{i=1}^{n}y_{i}
+$$
+
+Or simply, $\lambda$ equals to the sample mean.
+This makes the sample mean an unbiased estimator of $\lambda$, since each observation has the expectation $\lambda$ (as does the sample mean).
+
+# Poisson regression
+
+The goal of Poisson regression is to fit $E(Y)$ (the **expectation** of the events) as a function of $\lambda$ , of a set of $X$ independent variables $x_1, x_2, \dots, x_k$, and $\beta$ regression parameters, and the intercept $\alpha$.
+
+## The regression model
+
+Poisson regression is a [generalized linear model](https://online.stat.psu.edu/stat504/lesson/6/6.1) form of [regression analysis](https://www.khanacademy.org/math/statistics-probability/describing-relationships-quantitative-data/introduction-to-trend-lines/a/linear-regression-review).
+So it is tied to what we call a *link* function that allows us to "map" the linear model to its predicted value, more precisely with the mean of the distribution function.
+We may recall that the mean equals to $\lambda$; and the *link* function here is the natural logarithm:
+
+$$
+\begin{aligned}
+\lambda := E(Y\mid X) &= link^{-1}(\alpha + \beta X), \qquad \text{for} \; \alpha \in \mathbb{R} \; \text{and} \; \beta \in \mathbb{R}^n \\
+                      &= \log^{-1}(\alpha + \beta X) \\
+                      &= e^{\alpha + \beta X}
+\end{aligned}
+$$
+
+For sake of simplification, $\alpha + \beta X$ can be rewritten in a compact form $\theta' X$, where now $X$ is an $(n+1)\mathrm{-dimensional}$ vector consisting of $n$ independent variables concatenated to the number one.
+$\theta$ is simply $\alpha$ concatenated with $\beta$ .
+
+Thus the resulting formula is:
+
+$$
+E(Y\mid  X) = e^{\theta' X} \tag{equation 2}
+$$
+
+If $Y_i$ are independent observations with corresponding values $X_i$ of the predictor variables, then $\theta$ can be estimated by maximum likelihood.
+The maximum-likelihood estimates lack a **closed-form expression** and must be found by **numerical methods**.
+The probability surface for maximum-likelihood Poisson regression is always concave, making Newton--Raphson or other gradient-based methods appropriate estimation techniques.
+
+## Parameters estimation
+
+Given a set of parameters $\theta$ and an input vector $X$, the mean of the predicted Poisson distribution, as stated above, is given by:
+
+$$
+\lambda := E(Y\mid X) = e^{\theta'X} \tag{equation 2.1}
+$$
+
+and thus, the Poisson distribution's probability mass function is given by:
+
+$$
+P(Y\mid X;\theta)=\frac{\lambda^Y \times e^{-\lambda}}{Y!} (eq. 1) =\frac{e^{Y\theta'X} \times e^{-e^{\theta'X}}}{Y!} \tag{equation 2.2}
+$$
+
+Now suppose we are given a data set consisting of $m$ vectors $x_{i} \in \mathbb{R}^{n+1}, \, i=1, \ldots ,m$, along with a set of $m$ values $y_{1},\ldots, y_{m} \in \mathbb{N}$.
+Then, for a given set of parameters $\theta$, the probability of attaining this particular set of data is given by:
+
+$$
+P(y_1, \ldots, y_m \mid  x_1 \ldots x_m; \theta) =\prod_{i=1}^{m} \frac{e^{y_i\theta'x_i} \times e^{-e^{\theta'x_i}}}{y_i!} \tag{equation 2.3}
+$$
+
+By the method of maximum likelihood, we wish to find the set of parameters $\theta$ that makes this probability as large as possible.
+To do this, the equation is first rewritten as a likelihood function in terms of $\theta$:
+
+$$
+L(\theta\mid X,Y)=\prod_{i=1}^{m} \frac{e^{y_i\theta'x_i} \times e^{-e^{\theta'x_i}}}{y_i!} \tag{equation 2.4}
+$$
+
+To make it easy to compute, we change it to the $log\mathrm{-likelihood}$:
+
+$$
+\ell(\theta\mid X,Y)=\log{L(\theta\mid X,Y)}=\sum_{i=1}^{m} \left(y_i\theta'x_i -e^{\theta'x_i} - \log{(y_i!)} \right) \tag{equation 2.5}
+$$
+
+As we are only interested in the best value for $\theta$, we can drop the $y!$ on eq.
+2.5:
+
+$$
+\ell(\theta\mid X,Y)=\sum_{i=1}^{m} \left(y_i\theta'x_i -e^{\theta'x_i} \right) \tag{equation 2.6}
+$$
+
+To find the maximum, we need to solve for:
+
+$$
+\frac{\partial \ell (\theta \mid X,Y)}{\partial \theta }=0
+$$
+
+All of the above is gracefully solved by this **R** function:
+
+```{r poisson reg, eval=FALSE}
+# 'mydataset' contains a data.frame with y, x1, x2, x3, ..., where y must be 
+# integer >= 0, and x1 ... may be a categorical variable (factors)
+glm(y ~ x1 + x2 + x3, family=poisson(link=log), data = mydataset)
+```
+
+## "Exposure" and offset
+
+Poisson regression may also be appropriate for rate data, where the rate is a count of events divided by some measure of that unit's exposure (a particular unit of observation).
+For example, biologists may count the number of tree species in a forest: events would be tree observations, exposure would be unit area, and rate would be the number of species per unit area.
+Demographers may model death rates in geographic areas as the count of deaths divided by person−years.
+More generally, event rates can be calculated as events per unit time, which allows the observation window to vary for each unit.
+In these examples, exposure is respectively unit area, person−years and unit time.
+In Poisson regression this is handled as an offset, where the exposure variable enters on the right-hand side of the equation, but with a parameter estimate (for log(exposure)) constrained to 1.
+
+$$
+\log \left({\frac {E(Y\mid X)}{\text{exposure}}}\right)=\log(E(Y\mid X))-\log({\text{exposure}})=\theta 'X
+$$
+
+which implies
+
+$$
+\log(E(Y\mid X))=\log({\text{exposure}})+\theta 'X
+$$
+
+Offset in the case of a **GLM** in **R** can be achieved using the `offset()` function:
+
+```{r poisson offset, eval=FALSE}
+# 'mydataset' contains a data.frame with y, exposure, x1, x2, x3, ..., where y must be
+# integer >= 0, and x1 ... may be a categorical variable (factors). The exposure 
+# variable may be for example the population size of each given observation y.
+glm(y ~ offset(log(exposure)) + x1 + x2 + x3,
+  family = poisson(link = log),
+  data = mydataset
+)
+
+# The offset() function just tells the glm() function that the coeficient of
+# log(exposure) must be `1`.
+```
+
+# In practice
+
+Download dataset and prepare:
+
+```{r download_dataset}
+
+dataset <- read.csv("https://stats.idre.ucla.edu/stat/data/poisson_sim.csv")
+
+dataset$prog <- factor(dataset$prog,
+  levels = 1:3,
+  labels = c("General", "Academic", "Vocational")
+)
+```
+
+## Fitting a model
+
+Now that we have our dataset and the categorical variable is already defined as factors, we only need to follow the "formula" syntax for R: $y \sim x1 + x2$
+
+Let's fit a model for predicting the number of awards in function of the program and the math score:
+
+```{r fit1}
+m1 <- glm(num_awards ~ prog + math, family = poisson, data = dataset)
+```
+
+Also, let's fit a model without the program, to compare later:
+
+```{r fit2}
+m2 <- glm(num_awards ~ math, family = poisson, data = dataset)
+```
+
+Back to the first model, let's see the basic summary:
+
+```{r summary1}
+summary(m1)
+```
+
+The interpretation here is quite straightforward.
+The `Coefficients` table has the column `Estimate` that shows us the coefficients of the **Intercept**, of **prog** when it is Academic, or Vocational (the General is not shown, since it is implicitly zero), and of **math**.
+
+> **Note:** all coefficients are in the log scale (so when I said "implicitly zero", it is actually $log(1) = 0$).
+>
+> Before moving on, and for the sake of completeness, let's put these coefficients back to the formula, so we can understand it better.
+>
+> Look again at the equation 2.1.
+>
+> What it says, in simple words, is that if we elevate the euler's number to the result of summing all the coefficients, we will get as output the fitted value from the model, check this:
+>
+> ```{r back_to_formula, eval = FALSE}
+> num_awards <- exp(-5.24712 + 1.08386 + 0.07015 * math)
+> # or: num_awards = e^(intercept_coef + progAcademic_coef + math_coef * math)
+> # or: log(num_awards) = intercept_coef + progAcademic_coef + math_coef * math
+> # or even: num_awards = exp(-5.24712) * exp(1.08386) * exp(0.07015)^math
+> >
+> # in real life:
+> result <- predict(my_glm_model, my_new_or_old_data, type = "response")
+> # the default 'type' is "link", what would give us the result on the scale
+> # of the linear predictor. In our case, the log() of what we want. 
+> # While "response" already transforms the result for us.
+> ```
+>
+> This is crucial to understand the importance to know which link function we are dealing in any GLM model.
+>
+> Ok, continuing:
+
+Let's now just increase the robustness of the summary using some functions available on package `sandwich`[^2]:
+
+```{r robust1}
+# The default summary function assumes constant variances, thus 
+# computing (X'X)^(-1) from the QR decomposition of X.
+# Here we recompute the SE assuming the variances are not constant, increasing
+# robustness.
+# The 'HC0' means we are using the White's estimator.
+cov.m1 <- sandwich::vcovHC(m1, type = "HC0")
+std.err <- sqrt(diag(cov.m1))
+r.est <- cbind(
+  Estimate = coef(m1), "Robust SE" = std.err,
+  "Pr(>|z|)" = 2 * pnorm(abs(coef(m1) / std.err), lower.tail = FALSE),
+  LL = coef(m1) - 1.96 * std.err,
+  UL = coef(m1) + 1.96 * std.err
+)
+r.est
+```
+
+Here we see some little variations on the results, but importantly, we also have the `LL` and `UL` confidence interval.
+
+[^2]: Why get things complicated?
+    First, to give you a hint that you need to know what you are doing.
+    We can't assume that everything here is for granted.
+    Second, know you will know how to work with data that have not constant variances.
+
+## Incident rate ratios {#incident_rates}
+
+Sometimes, we want to show the coefficients as incident rate ratios (we transform them back from the log scale), and their standard errors.
+To accomplish that, we use the `deltamethod()` from `msm` package[^3]:
+
+```{r delta}
+# drop the p-value and exp the coefficients
+rexp.est <- exp(r.est[, -3])
+
+# compute the SE for the exp coefficients
+s <- msm::deltamethod(list(
+  ~ exp(x1), ~ exp(x2), ~ exp(x3), ~ exp(x4)
+), coef(m1), cov.m1)
+# replace with the new SE's
+rexp.est[, "Robust SE"] <- s
+rexp.est[, "LL"] <- rexp.est[, 1] - 1.96 * s
+rexp.est[, "UL"] <- rexp.est[, 1] + 1.96 * s
+
+rexp.est
+```
+
+> Hey, hey, I saw that, Intercept has LL = negative value!
+> There is no such thing as $log(-1)$!
+> How did we get that?
+>
+> Well, for the record, $log(-1) = i\pi$, so breathe... it's a valid number.
+>
+> Back on track:
+
+Here we see that for **`prog`**, using the value General as reference, when the value is Academic, the incident rate is `r round(rexp.est[2,1], 3)` times the reference, and when the value is Vocational, the incident rate is `r round(rexp.est[3,1], 3)` times the reference.
+For the continuous variable **`math`**, we see that for every unit increase in **`math`**, the incident rate of `num_awards` increases by \~`r round((rexp.est[4,1]-1)*100, 1)`%.
+
+> One more note: this is very useful for **understanding** and **explaining** the model, not for predictions.
+>
+> But if you insist, doing "by hand", it's just:
+>
+> `num_awards = intercept_ratecoef * progAcademic_ratecoef * math_ratecoef^math`
+
+[^3]: Again, why bother if we are just exponentiating all the coefficients?
+    Answer: where do you think you'll get the std.
+    error and confidence intervals for this new scale?
+
+## Evaluating the model
+
+### Goodness-of-fit
+
+Another important factor in every GLM model is to analyze is the relation between the **Residual Deviance (RD)** and the **Degrees of Freedom (DF)**.
+The RD informs us the goodness-of-fit for the model as a whole.
+The RD is the difference between the model's deviance and the data deviance (the theoretical best model).
+Ideally the RD should tend to zero.
+We can test this using the chi-squared test.
+If $p$ is not significant, we accept that the model fits the data.
+If not, we may revise our model, looking for omitted predictors, too much predictors, linearity issues or over-dispersion (a common problem on "Poisson"-ish distributions).
+
+> **Note:** we are not taking in account here the future observations.
+> In other words, here we are not testing the *overfitting* problem.
+
+```{r deviance}
+
+# Check if the model fits the data, this is the null hypothesis.
+with(
+  m1,
+  cbind(
+    res.deviance = deviance,
+    df = df.residual,
+    p = pchisq(deviance, df.residual, lower.tail = FALSE)
+  )
+)
+```
+
+Now, remember the second fit we did?
+Let's use the ANOVA and check which model seems be better for our data:
+
+```{r anova}
+
+# Attention on the output: Model 1 is actually m2
+anova(m2, m1, test = "Chisq")
+```
+
+First, **attention**, *Model 1* refers to the `m2` model, the model we did without the `prog` variable.
+
+Here we see that the fitted model that includes the `prog` variable is a significantly better predictor of `num_awards`.
+
+### Marginal means
+
+We can also inspect what are the expected results of our dependent variable `num_awards` for each of the categorical predictor `prog` holding `math` on its global mean.
+This is called the Marginal means.
+To solve this, we use our fitted model and make predictions with each `prog` value, keeping `math` the same as the overall mean:
+
+```{r}
+# Create a dummy data frame with mean(math) and all prog levels.
+(s1 <- data.frame(
+  math = mean(dataset$math),
+  prog = factor(1:3, levels = 1:3, labels = levels(dataset$prog))
+))
+# Then predict the values using type = "response".
+(marginal <- predict(m1, s1, type = "response", se.fit = TRUE))
+```
+
+With this output we can sanitize our findings in [Incident rate ratios](#incident_rates): holding `math` on its mean, the predicted number or events for progGeneral (1) is `r round(marginal$fit[1], 3)`, for progAcademic(2) is `r round(marginal$fit[2], 3)` and for progVocational(3) is `r round(marginal$fit[3], 3)`.
+Thus, making the ratios we get progAcademic/progGeneral equal to `r round(marginal$fit[2]/marginal$fit[1], 3)` and progAcademic/progVocational equal to `r round(marginal$fit[3]/marginal$fit[1], 3)`.
+The same estimated ratios.
+
+Better than just look to number is to look to a graph.
+So let's build a mix of the predicted[^4] values of our model together with the marginal means.
+
+```{r marginal_plot}
+# backup the dataset, so we don't mess with the original
+data <- dataset
+# compute the fitted values
+data$phat <- predict(m1, type = "response")
+
+# order by program and then by math
+data <- data %>% arrange(prog, math)
+
+# create the plot using math as X axis, the marginal means as Y and prog as colors
+ggplot(data, aes(x = math, y = phat, color = prog)) +
+  # plots the line of the marginal means
+  geom_line(size = 1) +
+  # plots the fitted values, we use 'jitter' to make it prettier
+  geom_point(aes(y = num_awards), alpha = .5, position = position_jitter(h = .2)) +
+  labs(title = "Fitted + Marginal means" , x = "Math Score", y = "Expected number of awards")
+```
+
+[^4]: For "predicted", understand as whatever value the model outputs.
+    It doesn't means we are predicting new future values.
+    If we use the same data we used for training the model, the output is not guaranteed to be the same (normally isn't).
+    We can also use the term "fitted" values to contrast with "predicted" new values.
+
+# To keep in mind
+
+-   When the data seems to be overdispersed we should look if our model is really the appropriated model.
+    We may need to add or remove variables, for example.
+    Above we saw how removing `prog` created a worse model.
+
+-   Assuming the model is correctly specified, main assumption of equal mean and variance should be checked.
+    There are several tests for that, out of the scope of this article.
+
+-   The most common problem we might face is having an additional data generating process that taints our data.
+    And for Poisson, it is common to have a zero-generating process (Poisson distribution plus lots of zeroes).
+    In that case we have the zero-inflated model that is more appropriated.
+    If the data doesn't allow zeros, use the zero-truncated model.
+
+-   Remember to check if your data has an exposure variable (like events and population_size).
+    This variable must be present in the model with the `offset` option.
+
+-   The outcome variable in a Poisson regression cannot have negative numbers, and the exposure cannot have zeros.
+
+-   Poisson regression is estimated via maximum likelihood estimation.
+    It usually requires a large sample size.
+
+# References {.unnumbered}
+
+-   Institute for Digital Research and Education, U., 2017. Poisson Regression \| R Data Analysis Examples. [online] Available at: [stats.idre.ucla.edu](http://stats.idre.ucla.edu/r/dae/poisson-regression/){.uri} [Accessed 21 April 2021].
+-   Koehrsen, W., 2019. The Poisson Distribution and Poisson Process Explained. [online] Available at: [Towards Data Science](https://towardsdatascience.com/the-poisson-distribution-and-poisson-process-explained-4e2cb17d459){.uri} [Accessed 21 April 2021].
+-   Greene, W., 2003. Econometric analysis. 5th ed. Upper Saddle River, N.J.: Prentice Hall, pp.740--752. ISBN [978-0130661890](https://www.amazon.com/Econometric-Analysis-5th-William-Greene/dp/0130661899).

@@ -1,7 +1,7 @@
 ---
 author:
 - Francisco Bischoff
-date: - 05 Apr 2021
+date: - 09 mai 2021
 editor_options:
   markdown:
     mode: gfm
@@ -12,7 +12,7 @@ output:
 title: HEADS Classes
 ---
 
-<!-- README.md is generated from README.Rmd. Please edit that file -->
+<!-- README.md is generated from README.Rmd, please edit that file -->
 
 <img src=".assets/figures/logo.png" align="right" style="float:right;"/>
 
